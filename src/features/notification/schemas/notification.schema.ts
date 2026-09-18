@@ -79,3 +79,66 @@ export type NotificationListResponse = z.infer<
   typeof NotificationListResponseSchema
 >;
 export type BroadcastCreatePayload = z.infer<typeof BroadcastCreateSchema>;
+
+// ─── New unified feed schemas ─────────────────────────────────────────────────
+
+/** A single item from the unified notification feed (personal or broadcast). */
+export const NotificationItemSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  category: z.string(),
+  title: z.string(),
+  description: z.string(),
+  entity_type: z.string().nullable(),
+  entity_id: z.string().nullable(),
+  is_read: z.boolean(),
+  is_archived: z.boolean(),
+  created_at: z.string(),
+  read_at: z.string().nullable(),
+  source: z.enum(["personal", "broadcast"]),
+  redirect_url: z.string().nullable(),
+});
+
+/** Paginated wrapper returned by GET /api/v1/notification/ */
+export const NotificationFeedSchema = z.object({
+  count: z.number(),
+  page: z.number(),
+  page_size: z.number(),
+  results: z.array(NotificationItemSchema),
+});
+
+export const UnreadCountResponseSchema = z.object({
+  unread_count: z.number(),
+});
+
+export type NotificationItem = z.infer<typeof NotificationItemSchema>;
+export type NotificationFeed = z.infer<typeof NotificationFeedSchema>;
+export type UnreadCountResponse = z.infer<typeof UnreadCountResponseSchema>;
+
+// ─── Admin broadcast dispatch (POST /api/v1/notification/admin/broadcast/) ────
+
+export const AdminBroadcastDispatchSchema = z.object({
+  title: z
+    .string()
+    .min(1, "Title is required")
+    .max(100, "Title must be 100 characters or fewer"),
+  description: z
+    .string()
+    .min(1, "Description is required")
+    .max(300, "Description must be 300 characters or fewer"),
+  redirect_url: z
+    .string()
+    .max(255, "URL must be 255 characters or fewer")
+    .optional()
+    .or(z.literal("")),
+  expires_in_days: z
+    .number()
+    .int()
+    .min(1, "Must be at least 1 day")
+    .max(90, "Must be 90 days or fewer")
+    .optional(),
+});
+
+export type AdminBroadcastDispatchPayload = z.infer<
+  typeof AdminBroadcastDispatchSchema
+>;

@@ -1,51 +1,139 @@
 "use client";
 
-import { Bell, Loader2 } from "lucide-react";
+import { Bell, CheckCheck, ListChecks, Loader2, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  useDeleteAllDirectNotifications,
-  useDeleteDirectNotification,
-  useNotifications,
+  useDeleteNotification,
+  useMarkAllNotificationsRead,
+  useMarkManyNotificationsRead,
+  useMarkNotificationRead,
+  useNotificationFeed,
+  useUnreadCount,
 } from "../hooks";
 import { NotificationList } from "./notification-list";
+
+function NotificationSkeleton() {
+  return (
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 3 }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
+        <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+          <Skeleton className="h-3.5 w-3/4" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function NotificationPopover() {
   const [open, setOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | undefined>(undefined);
-
-  const { data, isLoading } = useNotifications();
-  const { mutate: deleteOne } = useDeleteDirectNotification();
-  const { mutate: clearAll, isPending: isClearingAll } =
-    useDeleteAllDirectNotifications();
-
-  const now = new Date();
-  const activebroadcasts = (data?.broadcasts ?? []).filter(
-    (b) => new Date(b.expires_at) > now,
+  const [markingReadId, setMarkingReadId] = useState<string | undefined>(
+    undefined,
   );
 
-  const unreadCount = (data?.direct.length ?? 0) + activebroadcasts.length;
+  // multi-select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  function handleDeleteOne(id: string) {
+  // Badge: always alive while topbar is mounted (polls every 60s)
+  const { data: unreadCount = 0 } = useUnreadCount();
+
+  // Feed: only fetch when the popover is open
+  const { data: feed, isLoading, isError } = useNotificationFeed(open);
+
+  const { mutate: markOneRead } = useMarkNotificationRead();
+  const { mutate: markAllRead, isPending: isMarkingAll } =
+    useMarkAllNotificationsRead();
+  const { mutate: markManyRead, isPending: isMarkingMany } =
+    useMarkManyNotificationsRead();
+  const { mutate: deleteOne } = useDeleteNotification();
+
+  const notifications = feed?.results ?? [];
+  const unreadNotifications = notifications.filter((n) => !n.is_read);
+  const hasUnread = unreadCount > 0;
+  const hasNotifications = notifications.length > 0;
+
+  // IDs eligible for selection (unread only; broadcast IDs are silently skipped by the server)
+  const selectableIds = unreadNotifications.map((n) => n.id);
+  const allSelected =
+    selectableIds.length > 0 &&
+    selectableIds.every((id) => selectedIds.has(id));
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) exitSelectMode();
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
+  }
+
+  function toggleItem(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleMarkRead(id: string) {
+    setMarkingReadId(id);
+    markOneRead(id, { onSettled: () => setMarkingReadId(undefined) });
+  }
+
+  function handleDelete(id: string) {
     setDeletingId(id);
     deleteOne(id, { onSettled: () => setDeletingId(undefined) });
   }
 
+  function handleMarkSelectedRead() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    markManyRead(ids, { onSettled: exitSelectMode });
+  }
+
+  function handleDeleteSelected() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    // No bulk-delete endpoint — fire individual deletes for personal notifications
+    for (const id of ids) {
+      deleteOne(id);
+    }
+    exitSelectMode();
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
+          id="notification-bell-button"
           className="relative rounded-full shrink-0"
           size="icon"
           variant="ghost"
+          aria-label={
+            unreadCount > 0
+              ? `${unreadCount} unread notifications`
+              : "Notifications"
+          }
         >
           <Bell className="h-5 w-5 text-muted-foreground" />
           {unreadCount > 0 && (
@@ -62,76 +150,206 @@ export function NotificationPopover() {
         collisionPadding={16}
         className="w-[calc(100vw-2rem)] md:w-80 p-4 z-[70]"
       >
-        <Tabs defaultValue="direct">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-semibold">Notifications</h4>
-              <TabsList className="h-7 p-0.5">
-                <TabsTrigger value="direct" className="h-6 px-2 text-xs">
-                  Direct
-                  {(data?.direct.length ?? 0) > 0 && (
-                    <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
-                      {data?.direct.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="broadcasts" className="h-6 px-2 text-xs">
-                  Broadcasts
-                  {activebroadcasts.length > 0 && (
-                    <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
-                      {activebroadcasts.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <TabsContent value="direct" className="m-0">
-              {(data?.direct.length ?? 0) > 0 && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-xs -mt-1"
-                  onClick={() => clearAll()}
-                  disabled={isClearingAll}
-                >
-                  {isClearingAll ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    "Clear all"
-                  )}
-                </Button>
-              )}
-            </TabsContent>
-
-            <Separator />
-
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <>
-                <TabsContent value="direct" className="m-0">
-                  <NotificationList
-                    type="direct"
-                    items={data?.direct ?? []}
-                    onDelete={handleDeleteOne}
-                    deletingId={deletingId}
-                    emptyLabel="No direct notifications"
-                  />
-                </TabsContent>
-                <TabsContent value="broadcasts" className="m-0">
-                  <NotificationList
-                    type="broadcast"
-                    items={activebroadcasts}
-                    emptyLabel="No broadcast notifications"
-                  />
-                </TabsContent>
-              </>
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between mb-3">
+          {/* Left: title + subtitle */}
+          <div className="flex flex-col gap-0.5">
+            <h4 className="font-semibold leading-none">Notifications</h4>
+            {unreadCount > 0 && (
+              <span className="text-[11px] text-muted-foreground">
+                {unreadCount} unread
+              </span>
             )}
           </div>
-        </Tabs>
+
+          {/* Right: action buttons — never shrink */}
+          <div className="flex shrink-0 items-center gap-1">
+            {/* Select toggle — only when there are unread items */}
+            {!isLoading && !isError && unreadNotifications.length > 0 && (
+              <Button
+                id="notification-select-toggle"
+                size="sm"
+                variant={selectMode ? "secondary" : "ghost"}
+                className="h-7 px-2 text-xs gap-1.5"
+                onClick={() =>
+                  selectMode ? exitSelectMode() : setSelectMode(true)
+                }
+                aria-label={
+                  selectMode ? "Cancel selection" : "Select notifications"
+                }
+              >
+                {selectMode ? (
+                  <>
+                    <X className="h-3 w-3" />
+                    Cancel
+                  </>
+                ) : (
+                  <>
+                    <ListChecks className="h-3 w-3" />
+                    Select
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* Mark all read — only in normal mode */}
+            {!selectMode && hasUnread && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs gap-1.5"
+                onClick={() => markAllRead()}
+                disabled={isMarkingAll}
+                aria-label="Mark all as read"
+              >
+                {isMarkingAll ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <CheckCheck className="h-3 w-3" />
+                )}
+                Mark all
+              </Button>
+            )}
+          </div>
+        </div>
+        e{/* ── Select-all row ── */}
+        {selectMode && selectableIds.length > 0 && (
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <Checkbox
+              id="select-all-notifications"
+              checked={allSelected}
+              onCheckedChange={toggleSelectAll}
+              aria-label="Select all unread notifications"
+            />
+            <label
+              htmlFor="select-all-notifications"
+              className="text-xs text-muted-foreground cursor-pointer select-none"
+            >
+              {allSelected ? "Deselect all" : "Select all unread"}
+            </label>
+          </div>
+        )}
+        <Separator className="mb-3" />
+        {/* ── Body ── */}
+        {isLoading ? (
+          <NotificationSkeleton />
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-8 text-muted-foreground">
+            <p className="text-sm text-center">
+              Failed to load notifications.
+              <br />
+              Please try again.
+            </p>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground">
+            <p className="text-sm">You're all caught up!</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 overflow-y-auto max-h-[360px] pr-1">
+            {notifications.map((item) => {
+              const isSelectable = selectMode && !item.is_read;
+              return (
+                <div
+                  key={item.id}
+                  className={selectMode ? "flex items-start gap-2" : undefined}
+                >
+                  {/* Checkbox column — keeps layout stable for read items */}
+                  {selectMode && (
+                    <div className="mt-3.5 h-4 w-4 shrink-0 flex items-center justify-center">
+                      {isSelectable && (
+                        <Checkbox
+                          id={`select-notif-${item.id}`}
+                          checked={selectedIds.has(item.id)}
+                          onCheckedChange={() => toggleItem(item.id)}
+                          aria-label={`Select: ${item.title}`}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <NotificationList
+                      items={[item]}
+                      deletingId={deletingId}
+                      markingReadId={markingReadId}
+                      onDelete={selectMode ? undefined : handleDelete}
+                      onMarkRead={selectMode ? undefined : handleMarkRead}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {/* ── Footer ── */}
+        {!isLoading && !isError && (
+          <>
+            {selectMode
+              ? /* Multi-select action bar — appears only when ≥1 item is checked */
+                selectedIds.size > 0 && (
+                  <>
+                    <Separator className="mt-3 mb-2" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {selectedIds.size} selected
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          id="delete-selected-btn"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-3 text-xs gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={handleDeleteSelected}
+                          aria-label="Delete selected notifications"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Delete
+                        </Button>
+                        <Button
+                          id="mark-selected-read-btn"
+                          size="sm"
+                          variant="default"
+                          className="h-7 px-3 text-xs gap-1.5"
+                          onClick={handleMarkSelectedRead}
+                          disabled={isMarkingMany}
+                          aria-label="Mark selected notifications as read"
+                        >
+                          {isMarkingMany ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <CheckCheck className="h-3 w-3" />
+                          )}
+                          Mark read
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )
+              : /* Normal footer: clear all */
+                hasNotifications && (
+                  <>
+                    <Separator className="mt-3 mb-2" />
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-muted-foreground gap-1.5 hover:text-destructive"
+                        onClick={() => {
+                          for (const n of notifications) {
+                            if (n.source === "personal") deleteOne(n.id);
+                          }
+                        }}
+                        aria-label="Delete all notifications"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Clear all
+                      </Button>
+                    </div>
+                  </>
+                )}
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );

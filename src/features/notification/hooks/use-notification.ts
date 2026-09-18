@@ -9,18 +9,157 @@ import {
   deleteAllDirectNotifications,
   deleteBroadcast,
   deleteDirectNotification,
+  deleteNotification,
+  dispatchAdminBroadcast,
   getAllBroadcasts,
+  getNotificationFeed,
   getTargetCampusIGChapters,
   getTargetCampusList,
   getTargetEventList,
   getTargetIGList,
+  getUnreadCount,
   getUserNotifications,
+  markAllNotificationsRead,
+  markManyNotificationsRead,
+  markNotificationRead,
   updateBroadcast,
 } from "../api";
-import type { BroadcastCreatePayload, TargetType } from "../schemas";
+import type {
+  AdminBroadcastDispatchPayload,
+  BroadcastCreatePayload,
+  TargetType,
+} from "../schemas";
 import { notificationKeys } from "./query-keys";
 
 const REFETCH_INTERVAL = 60 * 1000;
+
+// ─── New unified feed hooks ───────────────────────────────────────────────────
+
+export function useNotificationFeed(enabled = true) {
+  return useQuery({
+    queryKey: notificationKeys.feed(),
+    queryFn: () => getNotificationFeed({ page_size: 20 }),
+    enabled,
+    staleTime: 30 * 1000,
+    refetchInterval: REFETCH_INTERVAL,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useUnreadCount() {
+  return useQuery({
+    queryKey: notificationKeys.unreadCount(),
+    queryFn: getUnreadCount,
+    refetchInterval: REFETCH_INTERVAL,
+    refetchIntervalInBackground: false,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => markNotificationRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, { fallback: "Failed to mark as read" }),
+      );
+    },
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+      toast.success("All notifications marked as read");
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, { fallback: "Failed to mark all as read" }),
+      );
+    },
+  });
+}
+
+export function useMarkManyNotificationsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => markManyNotificationsRead(ids),
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+      toast.success(
+        ids.length === 1
+          ? "Notification marked as read"
+          : `${ids.length} notifications marked as read`,
+      );
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, { fallback: "Failed to mark as read" }),
+      );
+    },
+  });
+}
+
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteNotification(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, {
+          fallback: "Failed to delete notification",
+        }),
+      );
+    },
+  });
+}
+
+// ─── Admin broadcast dispatch hook ────────────────────────────────────────────
+
+export function useDispatchAdminBroadcast() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: AdminBroadcastDispatchPayload) =>
+      dispatchAdminBroadcast(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.adminBroadcasts(),
+      });
+      toast.success("Broadcast dispatched successfully.");
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, {
+          fallback: "Failed to dispatch broadcast",
+        }),
+      );
+    },
+  });
+}
+
+// ─── Legacy admin management hooks ───────────────────────────────────────────
 
 export function useNotifications() {
   return useQuery({
