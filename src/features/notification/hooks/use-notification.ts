@@ -136,6 +136,34 @@ export function useDeleteNotification() {
   });
 }
 
+/**
+ * DELETE /api/v1/notification/delete/all/ — server-side exhaustive clear.
+ *
+ * Uses the bulk delete endpoint so ALL personal notifications are removed
+ * regardless of how many pages exist, avoiding the pagination bug where the
+ * client-side loop only cleared the first page of results.
+ */
+export function useDeleteAllPersonalNotifications() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteAllDirectNotifications,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+      toast.success("All notifications cleared");
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, {
+          fallback: "Failed to clear notifications",
+        }),
+      );
+    },
+  });
+}
+
 // ─── Admin broadcast dispatch hook ────────────────────────────────────────────
 
 export function useDispatchAdminBroadcast() {

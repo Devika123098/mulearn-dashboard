@@ -4,6 +4,7 @@ export {
   useCreateBroadcast,
   useDeleteAllBroadcasts,
   useDeleteAllDirectNotifications,
+  useDeleteAllPersonalNotifications,
   useDeleteBroadcast,
   useDeleteDirectNotification,
   useDeleteNotification,

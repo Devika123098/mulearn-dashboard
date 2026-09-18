@@ -13,6 +13,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  useDeleteAllPersonalNotifications,
   useDeleteNotification,
   useMarkAllNotificationsRead,
   useMarkManyNotificationsRead,
@@ -60,6 +61,8 @@ export function NotificationPopover() {
   const { mutate: markManyRead, isPending: isMarkingMany } =
     useMarkManyNotificationsRead();
   const { mutate: deleteOne } = useDeleteNotification();
+  const { mutate: deleteAllPersonal, isPending: isDeletingAll } =
+    useDeleteAllPersonalNotifications();
 
   const notifications = feed?.results ?? [];
   const unreadNotifications = notifications.filter((n) => !n.is_read);
@@ -335,14 +338,15 @@ export function NotificationPopover() {
                         size="sm"
                         variant="ghost"
                         className="h-7 px-2 text-xs text-muted-foreground gap-1.5 hover:text-destructive"
-                        onClick={() => {
-                          for (const n of notifications) {
-                            if (n.source === "personal") deleteOne(n.id);
-                          }
-                        }}
+                        onClick={() => deleteAllPersonal()}
+                        disabled={isDeletingAll}
                         aria-label="Delete all notifications"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        {isDeletingAll ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
                         Clear all
                       </Button>
                     </div>
