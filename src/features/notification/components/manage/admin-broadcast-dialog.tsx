@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateBroadcast } from "../../hooks";
+import { isSafeRedirectUrl } from "../../schemas";
 
 const AdminDispatchFormSchema = z.object({
   title: z
@@ -39,6 +40,10 @@ const AdminDispatchFormSchema = z.object({
   redirect_url: z
     .string()
     .max(255, "URL must be 255 characters or fewer")
+    .refine(
+      (val) => !val || isSafeRedirectUrl(val),
+      "URL must be a relative path (e.g. /dashboard) or an HTTPS URL (https://...)",
+    )
     .optional()
     .or(z.literal("")),
   expires_at: z.string().min(1, "Expiry date is required"),

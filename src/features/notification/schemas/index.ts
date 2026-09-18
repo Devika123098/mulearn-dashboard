@@ -18,6 +18,7 @@ export {
   BroadcastCreateSchema,
   BroadcastNotificationSchema,
   DirectNotificationSchema,
+  isSafeRedirectUrl,
   NotificationFeedSchema,
   NotificationItemSchema,
   NotificationListResponseSchema,

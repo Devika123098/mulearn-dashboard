@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUserInfo } from "@/features/auth/hooks/use-session";
 import { useCompanyProfile } from "@/features/company-jobs/hooks";
 import { GameProgressBar } from "@/features/mujourney/components/GameProgressBar";
-import { NotificationPopover } from "@/features/notification/components/notification-popover";
+import { NotificationPopover } from "@/features/notification";
 import { authStore, ROLES } from "@/lib/auth";
 import { useUIStore } from "@/stores/ui-store";
 

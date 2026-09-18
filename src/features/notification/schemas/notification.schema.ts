@@ -59,11 +59,35 @@ export const TARGET_TYPE_LABELS: Record<TargetType, string> = {
   event_interest: "Event Interest",
 };
 
+/**
+ * Restricts URLs to relative paths (e.g. /dashboard) and HTTPS URLs.
+ * Rejects protocol-relative URLs (//), javascript:, data:, and insecure HTTP schemes.
+ */
+export function isSafeRedirectUrl(url: string): boolean {
+  if (!url) return false;
+  if (url.startsWith("/") && !url.startsWith("//") && !url.startsWith("/\\")) {
+    return true;
+  }
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 // broadcast/create/ only accepts these 4 fields — backend auto-sets target_type=global
 export const BroadcastCreateSchema = z.object({
   title: z.string().min(1, "Title required"),
   description: z.string().min(1, "Description required"),
-  url: z.string().optional(),
+  url: z
+    .string()
+    .refine(
+      (val) => !val || isSafeRedirectUrl(val),
+      "URL must be a relative path (e.g. /dashboard) or an HTTPS URL (https://...)",
+    )
+    .optional()
+    .or(z.literal("")),
   expires_at: z.string().min(1, "Expiry date required"),
 });
 
@@ -96,7 +120,13 @@ export const NotificationItemSchema = z.object({
   created_at: z.string(),
   read_at: z.string().nullable(),
   source: z.enum(["personal", "broadcast"]),
-  redirect_url: z.string().nullable(),
+  redirect_url: z
+    .string()
+    .nullable()
+    .refine(
+      (val) => val === null || val === "" || isSafeRedirectUrl(val),
+      "redirect_url must be a relative path or an HTTPS URL",
+    ),
 });
 
 /** Paginated wrapper returned by GET /api/v1/notification/ */
@@ -129,6 +159,10 @@ export const AdminBroadcastDispatchSchema = z.object({
   redirect_url: z
     .string()
     .max(255, "URL must be 255 characters or fewer")
+    .refine(
+      (val) => !val || isSafeRedirectUrl(val),
+      "URL must be a relative path (e.g. /dashboard) or an HTTPS URL (https://...)",
+    )
     .optional()
     .or(z.literal("")),
   expires_in_days: z

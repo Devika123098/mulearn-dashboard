@@ -5,7 +5,10 @@ import { Check, ExternalLink, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { NotificationItem as NotificationItemData } from "../schemas";
+import {
+  isSafeRedirectUrl,
+  type NotificationItem as NotificationItemData,
+} from "../schemas";
 
 interface NotificationItemProps {
   item: NotificationItemData;
@@ -13,6 +16,16 @@ interface NotificationItemProps {
   isMarkingRead?: boolean;
   onDelete?: (id: string) => void;
   onMarkRead?: (id: string) => void;
+}
+
+/**
+ * Only allow relative paths and HTTPS URLs.
+ * Returns null for any other scheme (javascript:, data:, http://, etc.)
+ * so the link is hidden rather than rendered with an unsafe href.
+ */
+function sanitizeRedirectUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return isSafeRedirectUrl(url) ? url : null;
 }
 
 export function NotificationItem({
@@ -23,10 +36,8 @@ export function NotificationItem({
   onMarkRead,
 }: NotificationItemProps) {
   const isPending = isDeleting || isMarkingRead;
-  const isExternal =
-    (item.redirect_url?.startsWith("http") ||
-      item.redirect_url?.startsWith("//")) ??
-    false;
+  const safeUrl = sanitizeRedirectUrl(item.redirect_url);
+  const isExternal = safeUrl?.startsWith("https://") ?? false;
 
   return (
     // Non-interactive container — avoids nested interactive elements (button > button/a).
@@ -96,9 +107,9 @@ export function NotificationItem({
           {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
         </span>
 
-        {item.redirect_url && (
+        {safeUrl && (
           <Link
-            href={item.redirect_url}
+            href={safeUrl}
             className="flex items-center gap-1 text-xs text-primary hover:underline"
             target={isExternal ? "_blank" : undefined}
             rel={isExternal ? "noopener noreferrer" : undefined}

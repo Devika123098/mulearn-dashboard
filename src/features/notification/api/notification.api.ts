@@ -8,6 +8,7 @@ import type {
   NotificationListResponse,
   TargetOption,
 } from "../schemas";
+import { NotificationFeedSchema, UnreadCountResponseSchema } from "../schemas";
 
 export async function getUserNotifications(): Promise<NotificationListResponse> {
   return apiClient.get<NotificationListResponse>(endpoints.notifications.list);
@@ -65,13 +66,15 @@ export async function getNotificationFeed(
     : "";
   return apiClient.get<NotificationFeed>(
     `${endpoints.notifications.feed}${query}`,
+    NotificationFeedSchema,
   );
 }
 
 /** GET /api/v1/notification/unread-count/ */
 export async function getUnreadCount(): Promise<number> {
-  const data = await apiClient.get<{ unread_count: number }>(
+  const data = await apiClient.get(
     endpoints.notifications.unreadCount,
+    UnreadCountResponseSchema,
   );
   return data.unread_count;
 }
