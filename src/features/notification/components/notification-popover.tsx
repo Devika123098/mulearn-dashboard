@@ -212,7 +212,7 @@ export function NotificationPopover() {
             )}
           </div>
         </div>
-        e{/* ── Select-all row ── */}
+        {/* ── Select-all row ── */}
         {selectMode && selectableIds.length > 0 && (
           <div className="flex items-center gap-2 mb-2 px-1">
             <Checkbox
