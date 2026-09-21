@@ -390,9 +390,12 @@ export const endpoints = {
     /** PATCH/DELETE - Update or soft-delete a session */
     sessionUpdate: (sessionId: string) =>
       `/api/v1/dashboard/mentor/session/update/${sessionId}/`,
-    /** POST - Mark a session as complete (Mentor owner) */
+
+    /** POST - Mark a session as complete */
     sessionComplete: (sessionId: string) =>
       `/api/v1/dashboard/mentor/session/complete/${sessionId}/`,
+
+    // ── #15 GET  session/available/ ──────────────────────────────────────────
     /** GET - Learner: list SCHEDULED sessions for the user's IGs */
     sessionAvailable: "/api/v1/dashboard/mentor/session/available/",
     /** GET - Admin: list all non-deleted sessions */
@@ -1095,6 +1098,10 @@ export const endpoints = {
     tasks: {
       /** GET/POST - List tasks or Create task */
       base: "/api/v1/dashboard/task/",
+      /** GET - List tasks pre-filtered to active: true (server-side, paginated correctly) */
+      active: "/api/v1/dashboard/task/active/",
+      /** GET - List tasks pre-filtered to active: false (server-side, paginated correctly) */
+      inactive: "/api/v1/dashboard/task/inactive/",
       /** GET - Retrieve Task Public List */
       publicList: "/api/v1/dashboard/task/list/",
       /** GET/PUT/DELETE - Single task operations */
