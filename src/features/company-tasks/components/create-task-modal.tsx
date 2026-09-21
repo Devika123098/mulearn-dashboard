@@ -138,13 +138,7 @@ export function CreateTaskModal({
       setKarmaError(err);
       return;
     }
-    if (
-      !title.trim() ||
-      !hashtag.trim() ||
-      !karma ||
-      !description.trim() ||
-      (!taskToEdit && !level.trim())
-    )
+    if (!title.trim() || !hashtag.trim() || !karma || !description.trim())
       return;
 
     if (taskToEdit) {
@@ -303,7 +297,7 @@ export function CreateTaskModal({
               </div>
               <div className="space-y-2">
                 <label htmlFor="task-level" className="text-sm font-medium">
-                  Level <span className="text-destructive">*</span>
+                  Level
                 </label>
                 <Select
                   value={level}
