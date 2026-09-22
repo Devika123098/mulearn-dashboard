@@ -19,10 +19,12 @@ export {
   BroadcastNotificationSchema,
   DirectNotificationSchema,
   isSafeRedirectUrl,
+  NotificationFeedApiResponseSchema,
   NotificationFeedSchema,
   NotificationItemSchema,
   NotificationListResponseSchema,
   TARGET_TYPE_LABELS,
   TARGET_TYPES,
+  UnreadCountApiResponseSchema,
   UnreadCountResponseSchema,
 } from "./notification.schema";

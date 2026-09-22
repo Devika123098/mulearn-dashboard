@@ -3,8 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Megaphone } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { CustomDateTimePicker } from "@/components/ui/custom-datetime-picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,31 +23,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateBroadcast } from "../../hooks";
-import { isSafeRedirectUrl } from "../../schemas";
-
-const AdminDispatchFormSchema = z.object({
-  title: z
-    .string()
-    .min(1, "Title is required")
-    .max(100, "Title must be 100 characters or fewer"),
-  description: z
-    .string()
-    .min(1, "Description is required")
-    .max(300, "Description must be 300 characters or fewer"),
-  redirect_url: z
-    .string()
-    .max(255, "URL must be 255 characters or fewer")
-    .refine(
-      (val) => !val || isSafeRedirectUrl(val),
-      "URL must be a relative path (e.g. /dashboard) or an HTTPS URL (https://...)",
-    )
-    .optional()
-    .or(z.literal("")),
-  expires_at: z.string().min(1, "Expiry date is required"),
-});
-
-type AdminDispatchFormValues = z.infer<typeof AdminDispatchFormSchema>;
+import { useDispatchAdminBroadcast } from "../../hooks";
+import {
+  type AdminBroadcastDispatchPayload,
+  AdminBroadcastDispatchSchema,
+} from "../../schemas";
 
 interface AdminBroadcastDialogProps {
   open: boolean;
@@ -60,28 +38,28 @@ export function AdminBroadcastDialog({
   open,
   onOpenChange,
 }: AdminBroadcastDialogProps) {
-  const { mutate: create, isPending } = useCreateBroadcast();
+  const { mutate: dispatch, isPending } = useDispatchAdminBroadcast();
 
-  const form = useForm<AdminDispatchFormValues>({
-    resolver: zodResolver(AdminDispatchFormSchema),
+  const form = useForm<AdminBroadcastDispatchPayload>({
+    resolver: zodResolver(AdminBroadcastDispatchSchema),
     defaultValues: {
       title: "",
       description: "",
       redirect_url: "",
-      expires_at: "",
+      expires_in_days: 7,
     },
   });
 
   const titleValue = form.watch("title") ?? "";
   const descValue = form.watch("description") ?? "";
 
-  function onSubmit(values: AdminDispatchFormValues) {
-    create(
+  function onSubmit(values: AdminBroadcastDispatchPayload) {
+    dispatch(
       {
-        title: values.title,
-        description: values.description,
-        url: values.redirect_url || undefined,
-        expires_at: values.expires_at,
+        title: values.title.trim(),
+        description: values.description.trim(),
+        redirect_url: values.redirect_url?.trim() || undefined,
+        expires_in_days: values.expires_in_days,
       },
       {
         onSuccess: () => {
@@ -106,8 +84,9 @@ export function AdminBroadcastDialog({
             <DialogTitle>Dispatch Admin Broadcast</DialogTitle>
           </div>
           <DialogDescription>
-            Sends a platform-wide announcement to every active user as a global
-            broadcast notification.
+            Sends a platform-wide announcement to every active user as an{" "}
+            <code className="font-mono text-xs">ADMIN_BROADCAST</code>{" "}
+            notification.
           </DialogDescription>
         </DialogHeader>
 
@@ -182,32 +161,55 @@ export function AdminBroadcastDialog({
                       placeholder="https://mulearn.org/status"
                       maxLength={255}
                       {...field}
+                      value={field.value ?? ""}
                     />
                   </FormControl>
                   <FormDescription>
-                    Users navigate here when they tap the notification.
+                    Deep-link the client navigates to when the notification is
+                    tapped.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Expires at — date/time picker */}
+            {/* Expires in days */}
             <FormField
               control={form.control}
-              name="expires_at"
+              name="expires_in_days"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Expires at</FormLabel>
+                  <FormLabel>
+                    Expires in (days){" "}
+                    <span className="font-normal text-muted-foreground">
+                      (optional, default 7)
+                    </span>
+                  </FormLabel>
                   <FormControl>
-                    <CustomDateTimePicker
+                    <Input
+                      id="admin-broadcast-expires-in-days"
+                      type="number"
+                      min={1}
+                      max={90}
+                      placeholder="7"
+                      {...field}
                       value={field.value ?? ""}
-                      onChange={(val) => field.onChange(val)}
-                      minDate={new Date()}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          field.onChange(undefined);
+                        } else {
+                          const parsed = Number(raw);
+                          field.onChange(
+                            Number.isNaN(parsed) ? undefined : parsed,
+                          );
+                        }
+                      }}
                     />
                   </FormControl>
                   <FormDescription>
-                    Broadcast stops showing to users after this date and time.
+                    How many days the broadcast stays visible in users' feeds
+                    (1–90).
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

@@ -175,6 +175,12 @@ export function useDispatchAdminBroadcast() {
       queryClient.invalidateQueries({
         queryKey: notificationKeys.adminBroadcasts(),
       });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.feed(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
       toast.success("Broadcast dispatched successfully.");
     },
     onError: (error) => {

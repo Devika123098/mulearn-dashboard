@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ApiResponseSchema } from "@/lib/schemas/api-response";
 
 export const DirectNotificationSchema = z.object({
   id: z.string(),
@@ -137,9 +138,17 @@ export const NotificationFeedSchema = z.object({
   results: z.array(NotificationItemSchema),
 });
 
+export const NotificationFeedApiResponseSchema = ApiResponseSchema(
+  NotificationFeedSchema,
+);
+
 export const UnreadCountResponseSchema = z.object({
   unread_count: z.number(),
 });
+
+export const UnreadCountApiResponseSchema = ApiResponseSchema(
+  UnreadCountResponseSchema,
+);
 
 export type NotificationItem = z.infer<typeof NotificationItemSchema>;
 export type NotificationFeed = z.infer<typeof NotificationFeedSchema>;
