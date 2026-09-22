@@ -5,7 +5,6 @@ import {
   AlertCircle,
   Building2,
   Calendar,
-  CheckCircle2,
   ExternalLink,
   Eye,
   GraduationCap,
@@ -16,7 +15,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Blank } from "@/components/dashboard/table/Blank";
 import Pagination from "@/components/dashboard/table/pagination";
 import Table, { type Data } from "@/components/dashboard/table/Table";
@@ -24,8 +23,7 @@ import TableTop from "@/components/dashboard/table/TableTop";
 import THead from "@/components/dashboard/table/Thead";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -55,12 +53,12 @@ export function UnverifiedOrgLinksTable() {
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Selection states for actions
-  const [confirmingUser, setConfirmingUser] =
-    useState<UnverifiedOrgLinkUser | null>(null);
   const [viewingUser, setViewingUser] = useState<UnverifiedOrgLinkUser | null>(
     null,
   );
+
+  const lastViewedUser = useRef<UnverifiedOrgLinkUser | null>(null);
+  if (viewingUser) lastViewedUser.current = viewingUser;
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useUnverifiedOrgLinks({
@@ -91,18 +89,6 @@ export function UnverifiedOrgLinksTable() {
       setSortOrder("asc");
     }
     setPage(1);
-  };
-
-  const handleConfirmVerification = () => {
-    if (!confirmingUser) return;
-    updateVerificationMutation.mutate(
-      { linkId: confirmingUser.id, verified: true },
-      {
-        onSuccess: () => {
-          setConfirmingUser(null);
-        },
-      },
-    );
   };
 
   const formatDate = (dateStr?: string) => {
@@ -208,7 +194,7 @@ export function UnverifiedOrgLinksTable() {
         customActionRender={(row) => {
           const item = row as unknown as UnverifiedOrgLinkUser;
           return (
-            <div className="flex items-center justify-end gap-1">
+            <div className="flex items-center justify-end">
               <Button
                 variant="ghost"
                 size="icon"
@@ -219,17 +205,6 @@ export function UnverifiedOrgLinksTable() {
               >
                 <Eye className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-success hover:bg-success/15 hover:text-success"
-                title={`Verify ${item.full_name}`}
-                aria-label={`Verify ${item.full_name}`}
-                disabled={updateVerificationMutation.isPending}
-                onClick={() => setConfirmingUser(item)}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-              </Button>
             </div>
           );
         }}
@@ -238,17 +213,13 @@ export function UnverifiedOrgLinksTable() {
           switch (column) {
             case "full_name":
               return (
-                <div className="flex flex-col">
-                  <Link
-                    href={`/profile/${item.muid}`}
-                    className="group inline-flex w-fit items-center gap-1"
-                  >
-                    <span className="text-sm font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
-                      {item.full_name}
-                    </span>
-                    <ExternalLink className="h-3 w-3 text-muted-foreground transition-colors group-hover:text-primary" />
-                  </Link>
-                </div>
+                <Link
+                  href={`/profile/${item.muid}`}
+                  className="group inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold tracking-tight text-foreground transition-colors hover:text-primary"
+                >
+                  {item.full_name}
+                  <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+                </Link>
               );
             case "muid":
               return (
@@ -336,28 +307,6 @@ export function UnverifiedOrgLinksTable() {
         <Blank />
       </Table>
 
-      {/* Confirmation Dialog for Verifying a Link */}
-      <ConfirmDialog
-        open={confirmingUser !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmingUser(null);
-        }}
-        variant="success"
-        title="Verify Organization Link?"
-        description={`Are you sure you want to verify ${
-          confirmingUser?.full_name ?? "this user"
-        } (${confirmingUser?.muid ?? ""}) as an affiliated member of ${
-          confirmingUser?.org_title ?? "your campus"
-        }?`}
-        confirmLabel={
-          updateVerificationMutation.isPending
-            ? "Verifying..."
-            : "Verify Member"
-        }
-        isPending={updateVerificationMutation.isPending}
-        onConfirm={handleConfirmVerification}
-      />
-
       {/* Details Dialog */}
       <Dialog
         open={viewingUser !== null}
@@ -382,111 +331,115 @@ export function UnverifiedOrgLinksTable() {
             </div>
           </DialogHeader>
 
-          {viewingUser && (
-            <div className="grid gap-3 py-2 text-xs">
-              <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-foreground">
-                    {viewingUser.full_name}
-                  </span>
-                  <Badge variant="warning" className="text-[10px]">
-                    Pending Verification
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground font-mono">
-                  <span>MUID:</span>
-                  <span className="font-bold text-foreground">
-                    {viewingUser.muid}
-                  </span>
-                </div>
+          <div className="grid gap-3 py-2 text-xs">
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-foreground">
+                  {lastViewedUser.current?.full_name}
+                </span>
+                <Badge variant="warning" className="text-[10px]">
+                  Pending Verification
+                </Badge>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="rounded-lg border border-border/50 bg-card p-2.5">
-                  <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                    <Mail className="h-3.5 w-3.5" />
-                    <span className="font-medium text-[11px]">Email</span>
-                  </div>
-                  <p className="font-semibold text-foreground truncate">
-                    {viewingUser.email || "-"}
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-border/50 bg-card p-2.5">
-                  <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                    <Phone className="h-3.5 w-3.5" />
-                    <span className="font-medium text-[11px]">Mobile</span>
-                  </div>
-                  <p className="font-semibold text-foreground">
-                    {viewingUser.mobile || "-"}
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-border/50 bg-card p-2.5">
-                  <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                    <Building2 className="h-3.5 w-3.5" />
-                    <span className="font-medium text-[11px]">
-                      Organization
-                    </span>
-                  </div>
-                  <p className="font-semibold text-foreground truncate">
-                    {viewingUser.org_title || "-"}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {viewingUser.org_type || "College"}
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-border/50 bg-card p-2.5">
-                  <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                    <GraduationCap className="h-3.5 w-3.5" />
-                    <span className="font-medium text-[11px]">Academics</span>
-                  </div>
-                  <p className="font-semibold text-foreground">
-                    Year: {viewingUser.graduation_year || "-"}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Status:{" "}
-                    {viewingUser.is_alumni ? "Alumni" : "Active Student"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>Requested On:</span>
-                </div>
-                <span className="font-semibold text-foreground">
-                  {formatDate(viewingUser.created_at)}
+              <div className="flex items-center gap-2 text-muted-foreground font-mono">
+                <span>MUID:</span>
+                <span className="font-bold text-foreground">
+                  {lastViewedUser.current?.muid}
                 </span>
               </div>
             </div>
-          )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="rounded-lg border border-border/50 bg-card p-2.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <Mail className="h-3.5 w-3.5" />
+                  <span className="font-medium text-[11px]">Email</span>
+                </div>
+                <p className="font-semibold text-foreground truncate">
+                  {lastViewedUser.current?.email || "-"}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border/50 bg-card p-2.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <Phone className="h-3.5 w-3.5" />
+                  <span className="font-medium text-[11px]">Mobile</span>
+                </div>
+                <p className="font-semibold text-foreground">
+                  {lastViewedUser.current?.mobile || "-"}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border/50 bg-card p-2.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span className="font-medium text-[11px]">Organization</span>
+                </div>
+                <p className="font-semibold text-foreground truncate">
+                  {lastViewedUser.current?.org_title || "-"}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {lastViewedUser.current?.org_type || "College"}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border/50 bg-card p-2.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                  <GraduationCap className="h-3.5 w-3.5" />
+                  <span className="font-medium text-[11px]">Academics</span>
+                </div>
+                <p className="font-semibold text-foreground">
+                  Year: {lastViewedUser.current?.graduation_year || "-"}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Status:{" "}
+                  {lastViewedUser.current?.is_alumni
+                    ? "Alumni"
+                    : "Active Student"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>Requested On:</span>
+              </div>
+              <span className="font-semibold text-foreground">
+                {formatDate(lastViewedUser.current?.created_at)}
+              </span>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setViewingUser(null)}
             >
-              Close
+              Cancel
             </Button>
-            {viewingUser && (
-              <Button
-                variant="default"
-                size="sm"
-                className="gap-1.5 bg-success text-primary-foreground hover:bg-success/90"
-                onClick={() => {
-                  const userToConfirm = viewingUser;
-                  setViewingUser(null);
-                  setConfirmingUser(userToConfirm);
-                }}
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Verify This Member
-              </Button>
-            )}
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1.5 text-primary-foreground"
+              disabled={updateVerificationMutation.isPending}
+              onClick={() => {
+                const userToVerify = lastViewedUser.current;
+                setViewingUser(null);
+                if (userToVerify) {
+                  updateVerificationMutation.mutate({
+                    linkId: userToVerify.id,
+                    verified: true,
+                  });
+                }
+              }}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              {updateVerificationMutation.isPending
+                ? "Verifying..."
+                : "Verify This Member"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
