@@ -775,7 +775,13 @@ export const campusManageApi = {
       params.set("search", filters.search.trim());
     }
     if (filters.sortBy?.trim()) {
-      params.set("sortBy", filters.sortBy.trim());
+      const cleanSort = filters.sortBy.replace(/^-/, "").trim();
+      const isDesc =
+        filters.sortOrder === "desc" || filters.sortBy.startsWith("-");
+      const formattedSort = isDesc ? `-${cleanSort}` : cleanSort;
+
+      params.set("sortBy", formattedSort);
+      params.set("ordering", formattedSort);
     }
     if (filters.sortOrder?.trim()) {
       params.set("sortOrder", filters.sortOrder.trim());

@@ -75,11 +75,44 @@ export function UnverifiedOrgLinksTable() {
   const pagination = data?.pagination;
 
   const tableRows: (Data & UnverifiedOrgLinkUser)[] = useMemo(() => {
-    return rows.map((row) => ({
+    const list = rows.map((row) => ({
       ...row,
       mobile: row.mobile || "-",
     }));
-  }, [rows]);
+
+    if (!sortBy) return list;
+
+    return [...list].sort((a, b) => {
+      const valA = a[sortBy as keyof UnverifiedOrgLinkUser];
+      const valB = b[sortBy as keyof UnverifiedOrgLinkUser];
+
+      if (valA === valB) return 0;
+      if (valA == null || valA === "-" || valA === "") return 1;
+      if (valB == null || valB === "-" || valB === "") return -1;
+
+      let comparison = 0;
+      if (typeof valA === "number" && typeof valB === "number") {
+        comparison = valA - valB;
+      } else if (typeof valA === "boolean" && typeof valB === "boolean") {
+        comparison = (valA ? 1 : 0) - (valB ? 1 : 0);
+      } else if (sortBy === "created_at") {
+        const timeA = new Date(String(valA)).getTime();
+        const timeB = new Date(String(valB)).getTime();
+        if (!Number.isNaN(timeA) && !Number.isNaN(timeB)) {
+          comparison = timeA - timeB;
+        } else {
+          comparison = String(valA).localeCompare(String(valB));
+        }
+      } else {
+        comparison = String(valA).localeCompare(String(valB), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
+
+      return sortOrder === "desc" ? -comparison : comparison;
+    });
+  }, [rows, sortBy, sortOrder]);
 
   const handleSort = (column: string) => {
     if (sortBy === column) {
