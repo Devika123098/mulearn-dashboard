@@ -67,7 +67,9 @@ export function NotificationPopover() {
   const notifications = feed?.results ?? [];
   const unreadNotifications = notifications.filter((n) => !n.is_read);
   const hasUnread = unreadCount > 0;
-  const hasNotifications = notifications.length > 0;
+  const hasPersonalNotifications = notifications.some(
+    (n) => n.source === "personal",
+  );
 
   // IDs eligible for selection (unread only; broadcast IDs are silently skipped by the server)
   const selectableIds = unreadNotifications.map((n) => n.id);
@@ -329,8 +331,8 @@ export function NotificationPopover() {
                     </div>
                   </>
                 )
-              : /* Normal footer: clear all */
-                hasNotifications && (
+              : /* Normal footer: clear personal */
+                hasPersonalNotifications && (
                   <>
                     <Separator className="mt-3 mb-2" />
                     <div className="flex justify-end">
@@ -340,14 +342,14 @@ export function NotificationPopover() {
                         className="h-7 px-2 text-xs text-muted-foreground gap-1.5 hover:text-destructive"
                         onClick={() => deleteAllPersonal()}
                         disabled={isDeletingAll}
-                        aria-label="Delete all notifications"
+                        aria-label="Delete all personal notifications"
                       >
                         {isDeletingAll ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
                         ) : (
                           <Trash2 className="h-3 w-3" />
                         )}
-                        Clear all
+                        Clear personal
                       </Button>
                     </div>
                   </>

@@ -152,7 +152,7 @@ export function useDeleteAllPersonalNotifications() {
       queryClient.invalidateQueries({
         queryKey: notificationKeys.unreadCount(),
       });
-      toast.success("All notifications cleared");
+      toast.success("Personal notifications cleared");
     },
     onError: (error) => {
       toast.error(
