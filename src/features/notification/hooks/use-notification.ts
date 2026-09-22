@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getApiResponseError } from "@/hooks/use-get-error";
 import {
@@ -35,10 +40,16 @@ const REFETCH_INTERVAL = 60 * 1000;
 
 // ─── New unified feed hooks ───────────────────────────────────────────────────
 
-export function useNotificationFeed(enabled = true) {
-  return useQuery({
+export function useNotificationFeed(enabled = true, pageSize = 20) {
+  return useInfiniteQuery({
     queryKey: notificationKeys.feed(),
-    queryFn: () => getNotificationFeed({ page_size: 20 }),
+    queryFn: ({ pageParam = 1 }) =>
+      getNotificationFeed({ page: pageParam, page_size: pageSize }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const hasMore = lastPage.page * lastPage.page_size < lastPage.count;
+      return hasMore ? lastPage.page + 1 : undefined;
+    },
     enabled,
     staleTime: 30 * 1000,
     refetchInterval: REFETCH_INTERVAL,

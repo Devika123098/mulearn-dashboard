@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, CheckCheck, ListChecks, Loader2, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,7 +53,14 @@ export function NotificationPopover() {
   const { data: unreadCount = 0 } = useUnreadCount();
 
   // Feed: only fetch when the popover is open
-  const { data: feed, isLoading, isError } = useNotificationFeed(open);
+  const {
+    data: feedData,
+    isLoading,
+    isError,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useNotificationFeed(open);
 
   const { mutate: markOneRead } = useMarkNotificationRead();
   const { mutate: markAllRead, isPending: isMarkingAll } =
@@ -64,7 +71,10 @@ export function NotificationPopover() {
   const { mutate: deleteAllPersonal, isPending: isDeletingAll } =
     useDeleteAllPersonalNotifications();
 
-  const notifications = feed?.results ?? [];
+  const notifications = useMemo(
+    () => feedData?.pages.flatMap((page) => page.results) ?? [],
+    [feedData],
+  );
   const unreadNotifications = notifications.filter((n) => !n.is_read);
   const hasUnread = unreadCount > 0;
   const hasPersonalNotifications = notifications.some(
@@ -285,6 +295,30 @@ export function NotificationPopover() {
                 </div>
               );
             })}
+
+            {/* Load more button */}
+            {hasNextPage && (
+              <div className="pt-2 pb-1 text-center">
+                <Button
+                  id="notification-load-more-btn"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground h-8 hover:text-foreground"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  aria-label="Load older notifications"
+                >
+                  {isFetchingNextPage ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      Loading more…
+                    </>
+                  ) : (
+                    "Load older notifications"
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
         {/* ── Footer ── */}
