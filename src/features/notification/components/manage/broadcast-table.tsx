@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,14 +21,12 @@ interface BroadcastTableProps {
   broadcasts: AdminBroadcast[];
   isLoading: boolean;
   onEdit: (broadcast: AdminBroadcast) => void;
-  onCreateClick: () => void;
 }
 
 export function BroadcastTable({
   broadcasts,
   isLoading,
   onEdit,
-  onCreateClick,
 }: BroadcastTableProps) {
   const {
     mutate: deleteBroadcast,
@@ -48,12 +46,10 @@ export function BroadcastTable({
 
   if (broadcasts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-        <Plus className="h-10 w-10" />
-        <p className="text-sm">No broadcasts yet</p>
-        <Button size="sm" onClick={onCreateClick}>
-          Create broadcast
-        </Button>
+      <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
+        <p className="text-sm">
+          No broadcasts yet — use Dispatch broadcast to create one.
+        </p>
       </div>
     );
   }

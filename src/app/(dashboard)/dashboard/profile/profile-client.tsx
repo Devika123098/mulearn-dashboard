@@ -372,7 +372,7 @@ export function ProfilePageClient() {
         open={showShareProfile}
         onOpenChange={setShowShareProfile}
         muid={profile.muid}
-        isPublic={profile.is_public}
+        isPublic={profile.is_public ?? null}
       />
       <EditInterestGroupsModal
         open={showEditInterestGroups}

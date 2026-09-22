@@ -1573,12 +1573,33 @@ export const endpoints = {
   // Notifications
   // ============================================
   notifications: {
+    // ── Legacy (kept for admin management UI) ───────────────────────────────
     /** GET - List direct + broadcast notifications for authenticated user */
     list: "/api/v1/notification/list/",
     /** DELETE - Delete a single direct notification */
     deleteOne: (id: string) => `/api/v1/notification/delete/id/${id}/`,
     /** DELETE - Delete all direct notifications for authenticated user */
     deleteAll: "/api/v1/notification/delete/all/",
+
+    // ── New unified feed API ─────────────────────────────────────────────────
+    /** GET - Unified notification feed (personal + broadcast) */
+    feed: "/api/v1/notification/",
+    /** GET - Unread count for authenticated user */
+    unreadCount: "/api/v1/notification/unread-count/",
+    /** PATCH - Mark a single notification as read */
+    markOneRead: (id: string) => `/api/v1/notification/${id}/read/`,
+    /** PATCH - Mark specific notifications as read */
+    markManyRead: "/api/v1/notification/read/",
+    /** PATCH - Mark all notifications as read */
+    markAllRead: "/api/v1/notification/read-all/",
+    /** DELETE - Soft-delete one notification (new unified path) */
+    deleteNotification: (id: string) => `/api/v1/notification/${id}/`,
+
+    // ── Admin dispatch (new API) ─────────────────────────────────────────────
+    /** POST - Admin: dispatch a free-text announcement to every active user */
+    adminBroadcast: "/api/v1/notification/admin/broadcast/",
+
+    // ── Admin broadcast management ───────────────────────────────────────────
     broadcast: {
       /** GET - Admin: list all broadcasts */
       listAll: "/api/v1/notification/broadcast/list/all/",

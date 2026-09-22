@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getApiResponseError } from "@/hooks/use-get-error";
 import {
@@ -9,18 +14,197 @@ import {
   deleteAllDirectNotifications,
   deleteBroadcast,
   deleteDirectNotification,
+  deleteNotification,
+  dispatchAdminBroadcast,
   getAllBroadcasts,
+  getNotificationFeed,
   getTargetCampusIGChapters,
   getTargetCampusList,
   getTargetEventList,
   getTargetIGList,
+  getUnreadCount,
   getUserNotifications,
+  markAllNotificationsRead,
+  markManyNotificationsRead,
+  markNotificationRead,
   updateBroadcast,
 } from "../api";
-import type { BroadcastCreatePayload, TargetType } from "../schemas";
+import type {
+  AdminBroadcastDispatchPayload,
+  BroadcastCreatePayload,
+  TargetType,
+} from "../schemas";
 import { notificationKeys } from "./query-keys";
 
 const REFETCH_INTERVAL = 60 * 1000;
+
+// ─── New unified feed hooks ───────────────────────────────────────────────────
+
+export function useNotificationFeed(enabled = true, pageSize = 20) {
+  return useInfiniteQuery({
+    queryKey: notificationKeys.feed(),
+    queryFn: ({ pageParam = 1 }) =>
+      getNotificationFeed({ page: pageParam, page_size: pageSize }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const hasMore = lastPage.page * lastPage.page_size < lastPage.count;
+      return hasMore ? lastPage.page + 1 : undefined;
+    },
+    enabled,
+    staleTime: 30 * 1000,
+    refetchInterval: REFETCH_INTERVAL,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useUnreadCount() {
+  return useQuery({
+    queryKey: notificationKeys.unreadCount(),
+    queryFn: getUnreadCount,
+    refetchInterval: REFETCH_INTERVAL,
+    refetchIntervalInBackground: false,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => markNotificationRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, { fallback: "Failed to mark as read" }),
+      );
+    },
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+      toast.success("All notifications marked as read");
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, { fallback: "Failed to mark all as read" }),
+      );
+    },
+  });
+}
+
+export function useMarkManyNotificationsRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => markManyNotificationsRead(ids),
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+      toast.success(
+        ids.length === 1
+          ? "Notification marked as read"
+          : `${ids.length} notifications marked as read`,
+      );
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, { fallback: "Failed to mark as read" }),
+      );
+    },
+  });
+}
+
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteNotification(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, {
+          fallback: "Failed to delete notification",
+        }),
+      );
+    },
+  });
+}
+
+/**
+ * DELETE /api/v1/notification/delete/all/ — server-side exhaustive clear.
+ *
+ * Uses the bulk delete endpoint so ALL personal notifications are removed
+ * regardless of how many pages exist, avoiding the pagination bug where the
+ * client-side loop only cleared the first page of results.
+ */
+export function useDeleteAllPersonalNotifications() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteAllDirectNotifications,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.feed() });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+      toast.success("Personal notifications cleared");
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, {
+          fallback: "Failed to clear notifications",
+        }),
+      );
+    },
+  });
+}
+
+// ─── Admin broadcast dispatch hook ────────────────────────────────────────────
+
+export function useDispatchAdminBroadcast() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: AdminBroadcastDispatchPayload) =>
+      dispatchAdminBroadcast(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.adminBroadcasts(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.feed(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: notificationKeys.unreadCount(),
+      });
+      toast.success("Broadcast dispatched successfully.");
+    },
+    onError: (error) => {
+      toast.error(
+        getApiResponseError(error, {
+          fallback: "Failed to dispatch broadcast",
+        }),
+      );
+    },
+  });
+}
+
+// ─── Legacy admin management hooks ───────────────────────────────────────────
 
 export function useNotifications() {
   return useQuery({
